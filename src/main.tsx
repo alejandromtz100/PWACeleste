@@ -21,20 +21,4 @@ if ("serviceWorker" in navigator) {
     });
 }
 
-// 🔹 IndexedDB
-const request = window.indexedDB.open("database");
 
-request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-  const db = (event.target as IDBOpenDBRequest).result;
-  if (!db.objectStoreNames.contains("table")) {
-    db.createObjectStore("table", { autoIncrement: true });
-  }
-};
-
-request.onsuccess = () => {
-  console.log("✅ IndexedDB abierto correctamente");
-};
-
-request.onerror = () => {
-  console.error("❌ Error al abrir IndexedDB");
-};

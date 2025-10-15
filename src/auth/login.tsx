@@ -1,33 +1,52 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { savePendingLogin } from "../db"; // ✅ conexión a IndexedDB
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (!form.email || !form.username || !form.password) {
+    if (!form.email || !form.password) {
+      setLoading(false);
       return setError("Todos los campos son obligatorios");
     }
 
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (
-        user.email === form.email &&
-        user.username === form.username &&
-        user.password === form.password
-      ) {
-        navigate("/inicio"); // login exitoso
-      } else {
-        setError("Credenciales incorrectas");
+    try {
+      // Intentar login normalmente
+      const res = await fetch("http://localhost:4000/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error de conexión");
+
+      // ✅ Si fue exitoso
+      localStorage.setItem("user", JSON.stringify(data));
+      navigate("/inicio");
+    } catch (err: any) {
+      console.warn("💾 Guardando intento de login offline...");
+      // ✅ Guardar datos offline
+      await savePendingLogin({ data: form });
+
+      // ✅ Registrar sincronización al volver el internet
+      if ("serviceWorker" in navigator && "SyncManager" in window) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.sync?.register("sync-logins");
+        console.log("🔔 Sincronización 'sync-logins' registrada");
       }
-    } else {
-      setError("No existe ninguna cuenta registrada");
+
+      setError("Sin conexión — se intentará iniciar sesión cuando vuelvas a estar online");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,14 +74,7 @@ export default function Login() {
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
-        <input
-          type="text"
-          placeholder="Usuario"
-          className="w-full p-3 mb-4 rounded-lg bg-white/20 border border-white/30 
-          text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-pink-400"
-          value={form.username}
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
-        />
+
         <input
           type="password"
           placeholder="Contraseña"
@@ -74,11 +86,12 @@ export default function Login() {
 
         <button
           type="submit"
+          disabled={loading}
           className="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 
           text-white py-3 rounded-lg font-semibold text-lg shadow-lg 
-          hover:scale-105 transition-transform"
+          hover:scale-105 transition-transform disabled:opacity-50"
         >
-          Iniciar Sesión
+          {loading ? "Ingresando..." : "Iniciar Sesión"}
         </button>
 
         <p className="mt-4 text-sm text-center text-white/80">

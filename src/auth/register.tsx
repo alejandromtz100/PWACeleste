@@ -9,23 +9,45 @@ export default function Register() {
     password: "",
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (!form.email || !form.username || !form.password) {
+      setLoading(false);
       return setError("Todos los campos son obligatorios");
     }
     if (!/\S+@\S+\.\S+/.test(form.email)) {
+      setLoading(false);
       return setError("Correo electrónico no válido");
     }
     if (form.password.length < 6) {
+      setLoading(false);
       return setError("La contraseña debe tener al menos 6 caracteres");
     }
 
-    localStorage.setItem("user", JSON.stringify(form));
-    navigate("/"); // vuelve al login
+    try {
+      const res = await fetch("http://localhost:4000/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || "Error al registrar usuario");
+
+      // Guardamos token y datos en localStorage
+      localStorage.setItem("user", JSON.stringify(data));
+      navigate("/inicio");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -68,9 +90,10 @@ export default function Register() {
 
         <button
           type="submit"
-          className="w-full bg-gradient-to-r from-green-500 via-teal-500 to-emerald-500 text-white py-3 rounded-lg font-semibold text-lg shadow-lg hover:scale-105 transition-transform"
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-green-500 via-teal-500 to-emerald-500 text-white py-3 rounded-lg font-semibold text-lg shadow-lg hover:scale-105 transition-transform disabled:opacity-50"
         >
-          Registrarse
+          {loading ? "Registrando..." : "Registrarse"}
         </button>
 
         <p className="mt-4 text-sm text-center text-white/80">
